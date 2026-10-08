@@ -1,0 +1,68 @@
+---
+title: "Comparability of translated exam forms"
+output: markdown::html_format
+vignette: >
+  %\VignetteIndexEntry{Comparability of translated exam forms}
+  %\VignetteEngine{knitr::knitr}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+When an exam is offered in a second language, the question is whether a score
+means the same thing in both. Standard DIF tools struggle when the translated
+group is small, differs in ability, and many items shift in the same
+direction. transDIF is built for that situation.
+
+## Data
+
+A source-language group of 2,000 and a translated-language group of 150 who
+are 0.5 logits lower on average. Items with idioms, cultural referents,
+measurement units or heavy vocabulary tend to shift in translation.
+
+```{r}
+library(transDIF)
+sim <- td_simulate(n_ref = 2000, n_focal = 150, n_items = 40, seed = 5)
+colSums(sim$features[-1])
+```
+
+## Calibrate each group, then link and detect DIF together
+
+```{r}
+cal <- td_calibrate(sim$responses, sim$group)
+dif <- td_dif(cal)
+dif
+```
+
+The linking shift (the ability difference) is the center of the densest
+cluster of items, not the mean of all items, so it does not assume that DIF
+cancels out. Compare with linking on
+all items:
+
+```{r}
+c(true = -sim$truth$focal_mean, robust = dif$link[["c"]], all_items = dif$c_mean)
+```
+
+## Does DIF change pass rates?
+
+```{r}
+td_impact(dif, cut = 24, n_draws = 100, seed = 1)
+```
+
+## What should translators look at?
+
+```{r}
+td_features(dif, sim$features)
+```
+
+## A report to start from
+
+```{r}
+cat(td_report(dif, languages = c("English", "French")))
+```
+
+With focal groups of 100 or fewer, treat flags as candidates for expert
+review: in the package's validation the false discovery rate exceeded its
+target at those sizes.
